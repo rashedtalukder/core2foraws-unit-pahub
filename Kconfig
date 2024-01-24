@@ -1,7 +1,7 @@
-menu "Unit-PA-Hub"
+menu "Unit-PaHUB"
     config PAHUB_ADDRESS
         hex
-        prompt "Address for PA Hub itself"
+        prompt "PaHUB I2C peripheral address"
         default 0x70
         range 0x70 0x77
 endmenu

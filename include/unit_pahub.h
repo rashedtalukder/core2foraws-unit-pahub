@@ -33,6 +33,8 @@ extern "C"
 #endif
 
 #include <esp_err.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <stdio.h>
 
 #define UNIT_PAHUB_ADDR         CONFIG_PAHUB_ADDRESS
@@ -67,6 +69,76 @@ extern "C"
    *  - ESP_OK                : Success
    */
   esp_err_t unit_pahub_channel_get( uint8_t *channel );
+
+  /**
+   * @brief Initialize the PaHUB mutex for thread-safe operations.
+   *
+   * This function must be called once before using any thread-safe PaHUB
+   * operations. It initializes the internal mutex used to protect against race
+   * conditions.
+   *
+   * @return
+   * [esp_err_t](https://docs.espressif.com/projects/esp-idf/en/release-v4.3/esp32/api-reference/system/esp_err.html#macros).
+   *  - ESP_OK                : Success
+   *  - ESP_FAIL              : Failed to create mutex
+   */
+  esp_err_t unit_pahub_init( void );
+
+  /**
+   * @brief Thread-safe I2C read operation with automatic channel switching.
+   *
+   * This function atomically switches to the specified channel and performs
+   * an I2C read operation. It ensures no other task can interfere with the
+   * channel setting during the operation.
+   *
+   * @param channel Channel number of IIC peripheral (0-5).
+   * @param device_address The 8-bit I2C peripheral address.
+   * @param register_address The data register address.
+   * @param data Pointer to the data read from the I2C peripheral.
+   * @param length The number of bytes to read.
+   * @return
+   * [esp_err_t](https://docs.espressif.com/projects/esp-idf/en/release-v4.3/esp32/api-reference/system/esp_err.html#macros).
+   *  - ESP_OK                : Success
+   *  - ESP_ERR_INVALID_ARG   : Invalid channel or parameter error
+   *  - ESP_ERR_TIMEOUT       : Failed to acquire mutex or I2C timeout
+   */
+  esp_err_t unit_pahub_i2c_read( uint8_t channel, uint16_t device_address,
+                                 uint32_t register_address, uint8_t *data,
+                                 uint16_t length );
+
+  /**
+   * @brief Thread-safe I2C write operation with automatic channel switching.
+   *
+   * This function atomically switches to the specified channel and performs
+   * an I2C write operation. It ensures no other task can interfere with the
+   * channel setting during the operation.
+   *
+   * @param channel Channel number of IIC peripheral (0-5).
+   * @param device_address The 8-bit I2C peripheral address.
+   * @param register_address The data register address.
+   * @param data Pointer to the data to write to the I2C peripheral.
+   * @param length The number of bytes to write.
+   * @return
+   * [esp_err_t](https://docs.espressif.com/projects/esp-idf/en/release-v4.3/esp32/api-reference/system/esp_err.html#macros).
+   *  - ESP_OK                : Success
+   *  - ESP_ERR_INVALID_ARG   : Invalid channel or parameter error
+   *  - ESP_ERR_TIMEOUT       : Failed to acquire mutex or I2C timeout
+   */
+  esp_err_t unit_pahub_i2c_write( uint8_t channel, uint16_t device_address,
+                                  uint32_t register_address,
+                                  const uint8_t *data, uint16_t length );
+
+  /**
+   * @brief Deinitialize the PaHUB and free resources.
+   *
+   * This function should be called when done using the PaHUB to free
+   * the mutex resources.
+   *
+   * @return
+   * [esp_err_t](https://docs.espressif.com/projects/esp-idf/en/release-v4.3/esp32/api-reference/system/esp_err.html#macros).
+   *  - ESP_OK                : Success
+   */
+  esp_err_t unit_pahub_deinit( void );
 
 #ifdef __cplusplus
 }

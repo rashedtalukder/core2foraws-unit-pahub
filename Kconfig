@@ -1,4 +1,4 @@
-menu "Unit-PaHUB"
+menu "Unit PaHUB Configuration"
     config PAHUB_ADDRESS
         hex
         prompt "PaHUB I2C peripheral address"

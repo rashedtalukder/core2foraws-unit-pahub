@@ -33,9 +33,8 @@ extern "C"
 #endif
 
 #include <esp_err.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
-#include <stdio.h>
+#include <stdint.h>
+#include <driver/i2c_master.h>
 
 #define UNIT_PAHUB_ADDR         CONFIG_PAHUB_ADDRESS
 #define UNIT_PAHUB_CHANNELS_NUM 6 // Human number of channels
@@ -60,13 +59,21 @@ extern "C"
   esp_err_t unit_pahub_channel_set( uint8_t channel );
 
   /**
-   * @brief Retrieves the channel the PaHUB is set to.
+   * @brief Reads the active channel from the PaHUB hardware.
    *
-   * @param channel Channel number the PaHUB is set to in this application
-   * (0-5).
+   * The PaHUB chip stores the selected channel as a bitmask in its control
+   * register. This function reads that register and converts the bitmask back
+   * into a channel number (0-5). If no channel is active the output is set to
+   * 0xFF.
+   *
+   * @param channel Output: channel number (0-5), or 0xFF if no channel is
+   *                active. Must not be NULL.
    * @return
    * [esp_err_t](https://docs.espressif.com/projects/esp-idf/en/release-v4.3/esp32/api-reference/system/esp_err.html#macros).
    *  - ESP_OK                : Success
+   *  - ESP_ERR_INVALID_ARG   : channel pointer is NULL
+   *  - ESP_ERR_INVALID_STATE : unit_pahub_init() has not been called
+   *  - ESP_ERR_TIMEOUT       : Failed to acquire the internal mutex
    */
   esp_err_t unit_pahub_channel_get( uint8_t *channel );
 
@@ -92,7 +99,7 @@ extern "C"
    * channel setting during the operation.
    *
    * @param channel Channel number of IIC peripheral (0-5).
-   * @param device_address The 8-bit I2C peripheral address.
+   * @param dev_handle The I2C device handle for the target device.
    * @param register_address The data register address.
    * @param data Pointer to the data read from the I2C peripheral.
    * @param length The number of bytes to read.
@@ -102,7 +109,7 @@ extern "C"
    *  - ESP_ERR_INVALID_ARG   : Invalid channel or parameter error
    *  - ESP_ERR_TIMEOUT       : Failed to acquire mutex or I2C timeout
    */
-  esp_err_t unit_pahub_i2c_read( uint8_t channel, uint16_t device_address,
+  esp_err_t unit_pahub_i2c_read( uint8_t channel, i2c_master_dev_handle_t dev_handle,
                                  uint32_t register_address, uint8_t *data,
                                  uint16_t length );
 
@@ -114,7 +121,7 @@ extern "C"
    * channel setting during the operation.
    *
    * @param channel Channel number of IIC peripheral (0-5).
-   * @param device_address The 8-bit I2C peripheral address.
+   * @param dev_handle The I2C device handle for the target device.
    * @param register_address The data register address.
    * @param data Pointer to the data to write to the I2C peripheral.
    * @param length The number of bytes to write.
@@ -124,7 +131,7 @@ extern "C"
    *  - ESP_ERR_INVALID_ARG   : Invalid channel or parameter error
    *  - ESP_ERR_TIMEOUT       : Failed to acquire mutex or I2C timeout
    */
-  esp_err_t unit_pahub_i2c_write( uint8_t channel, uint16_t device_address,
+  esp_err_t unit_pahub_i2c_write( uint8_t channel, i2c_master_dev_handle_t dev_handle,
                                   uint32_t register_address,
                                   const uint8_t *data, uint16_t length );
 

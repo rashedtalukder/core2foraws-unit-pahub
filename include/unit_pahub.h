@@ -20,8 +20,8 @@
  * @Links [PAHUB](https://docs.m5stack.com/en/unit/pahub)
  * @Links [PAHUB2](https://docs.m5stack.com/en/unit/pahub2)
  *
- * @version  V0.0.1
- * @date  2024-01-23
+ * @version  V0.0.2
+ * @date  2026-06-04
  */
 
 #ifndef _UNIT_PAHUB_H_
@@ -36,14 +36,16 @@ extern "C"
 #include <stdint.h>
 #include <driver/i2c_master.h>
 
+/** @brief 7-bit I2C address of the PaHUB, from Kconfig (default 0x70). */
 #define UNIT_PAHUB_ADDR         CONFIG_PAHUB_ADDRESS
+/** @brief Number of downstream channels exposed by the PaHUB. */
 #define UNIT_PAHUB_CHANNELS_NUM 6 // Human number of channels
-#define UNIT_PAHUB_CHANNEL_0    0
-#define UNIT_PAHUB_CHANNEL_1    1
-#define UNIT_PAHUB_CHANNEL_2    2
-#define UNIT_PAHUB_CHANNEL_3    3
-#define UNIT_PAHUB_CHANNEL_4    4
-#define UNIT_PAHUB_CHANNEL_5    5
+#define UNIT_PAHUB_CHANNEL_0    0 /*!< Downstream channel 0 */
+#define UNIT_PAHUB_CHANNEL_1    1 /*!< Downstream channel 1 */
+#define UNIT_PAHUB_CHANNEL_2    2 /*!< Downstream channel 2 */
+#define UNIT_PAHUB_CHANNEL_3    3 /*!< Downstream channel 3 */
+#define UNIT_PAHUB_CHANNEL_4    4 /*!< Downstream channel 4 */
+#define UNIT_PAHUB_CHANNEL_5    5 /*!< Downstream channel 5 */
 
   /**
    * @brief Set the channel for connected IIC peripheral.

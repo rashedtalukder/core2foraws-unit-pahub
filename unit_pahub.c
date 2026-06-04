@@ -20,8 +20,8 @@
  * @Links [PAHUB](https://docs.m5stack.com/en/unit/pahub)
  * @Links [PAHUB2](https://docs.m5stack.com/en/unit/pahub2)
  *
- * @version  V0.0.1
- * @date  2024-01-23
+ * @version  V0.0.2
+ * @date  2026-06-04
  */
 
 #include "unit_pahub.h"
@@ -34,6 +34,48 @@ static const char *_TAG = "UNIT_PAHUB";
 static SemaphoreHandle_t pahub_mutex = NULL;
 static uint8_t current_channel = 0xFF; // Invalid channel to force initial set
 static i2c_master_dev_handle_t _pahub_dev = NULL;
+
+// How long to wait for the internal mutex before giving up.
+#define UNIT_PAHUB_MUTEX_TIMEOUT_MS 1000
+
+// Bounded retries for the mux control-register write. The PCA9548A activates a
+// channel only after STOP; a transient NAK on the upstream bus should be
+// retried rather than aborting the whole downstream transaction (datasheet
+// section 14 recovery guidance).
+#define UNIT_PAHUB_CHANNEL_SET_RETRIES 3
+
+// Cached-channel sentinel meaning "unknown / force a re-select".
+#define UNIT_PAHUB_CHANNEL_UNKNOWN 0xFF
+
+// Raw channel select. The caller MUST already hold pahub_mutex. Writes the
+// one-hot channel mask to the mux control register and updates the cached
+// current_channel. On persistent failure the cache is invalidated so the next
+// access re-selects instead of trusting a stale value.
+static esp_err_t _pahub_channel_set_locked( uint8_t channel )
+{
+  if( channel >= UNIT_PAHUB_CHANNELS_NUM )
+  {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  const uint8_t channel_mask = (uint8_t)1 << channel;
+  esp_err_t err = ESP_FAIL;
+
+  for( int attempt = 0; attempt < UNIT_PAHUB_CHANNEL_SET_RETRIES; attempt++ )
+  {
+    err = core2foraws_expports_i2c_write( _pahub_dev, CORE2FORAWS_I2C_NO_REG,
+                                          &channel_mask, 1 );
+    if( err == ESP_OK )
+    {
+      current_channel = channel;
+      return ESP_OK;
+    }
+  }
+
+  // The mux is now in an unknown state; do not trust the cache.
+  current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN;
+  return err;
+}
 
 esp_err_t unit_pahub_init( void )
 {
@@ -69,7 +111,7 @@ esp_err_t unit_pahub_init( void )
                 esp_err_to_name( err ) );
     }
 
-    current_channel = 0xFF; // Force channel set on first use
+    current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN; // Force channel set on first use
     ESP_LOGI( _TAG, "PaHUB initialized successfully" );
   }
   return ESP_OK;
@@ -77,19 +119,30 @@ esp_err_t unit_pahub_init( void )
 
 esp_err_t unit_pahub_channel_set( uint8_t channel )
 {
-  esp_err_t err = ESP_ERR_INVALID_ARG;
-
-  if( channel < UNIT_PAHUB_CHANNELS_NUM )
+  if( channel >= UNIT_PAHUB_CHANNELS_NUM )
   {
-    const uint8_t l_shift_channel = (uint8_t)1 << channel;
-    err = core2foraws_expports_i2c_write( _pahub_dev, CORE2FORAWS_I2C_NO_REG,
-                                          &l_shift_channel, 1 );
-    if( err == ESP_OK )
-    {
-      current_channel = channel;
-    }
+    return ESP_ERR_INVALID_ARG;
   }
 
+  if( pahub_mutex == NULL )
+  {
+    ESP_LOGE( _TAG, "PaHUB not initialized. Call unit_pahub_init() first." );
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  // Take the mutex so a direct external channel select cannot race with an
+  // in-flight unit_pahub_i2c_read/write on another task and corrupt the
+  // selected channel mid-transaction.
+  if( xSemaphoreTake( pahub_mutex,
+                      pdMS_TO_TICKS( UNIT_PAHUB_MUTEX_TIMEOUT_MS ) ) != pdTRUE )
+  {
+    ESP_LOGE( _TAG, "Failed to acquire PaHUB mutex for channel set" );
+    return ESP_ERR_TIMEOUT;
+  }
+
+  esp_err_t err = _pahub_channel_set_locked( channel );
+
+  xSemaphoreGive( pahub_mutex );
   return err;
 }
 
@@ -107,7 +160,8 @@ esp_err_t unit_pahub_channel_get( uint8_t *channel )
     return ESP_ERR_INVALID_STATE;
   }
 
-  if( xSemaphoreTake( pahub_mutex, pdMS_TO_TICKS( 1000 ) ) != pdTRUE )
+  if( xSemaphoreTake( pahub_mutex,
+                      pdMS_TO_TICKS( UNIT_PAHUB_MUTEX_TIMEOUT_MS ) ) != pdTRUE )
   {
     ESP_LOGE( _TAG, "Failed to acquire PaHUB mutex for channel read" );
     return ESP_ERR_TIMEOUT;
@@ -121,7 +175,7 @@ esp_err_t unit_pahub_channel_get( uint8_t *channel )
     // The PaHUB returns a bitmask where each bit matches a channel number.
     // Channel 0 = 0x01 (bit 0), channel 1 = 0x02 (bit 1), and so on.
     // Scan every valid channel until we find the matching bit.
-    *channel = 0xFF; // 0xFF means no single valid channel is active.
+    *channel = UNIT_PAHUB_CHANNEL_UNKNOWN; // No single valid channel is active.
     for( uint8_t i = 0; i < UNIT_PAHUB_CHANNELS_NUM; i++ )
     {
       if( mask == ( 1u << i ) )
@@ -152,7 +206,8 @@ esp_err_t unit_pahub_i2c_read( uint8_t channel, i2c_master_dev_handle_t dev_hand
   }
 
   // Take mutex with timeout
-  if( xSemaphoreTake( pahub_mutex, pdMS_TO_TICKS( 1000 ) ) != pdTRUE )
+  if( xSemaphoreTake( pahub_mutex,
+                      pdMS_TO_TICKS( UNIT_PAHUB_MUTEX_TIMEOUT_MS ) ) != pdTRUE )
   {
     ESP_LOGE( _TAG, "Failed to acquire PaHUB mutex for read operation" );
     return ESP_ERR_TIMEOUT;
@@ -163,7 +218,7 @@ esp_err_t unit_pahub_i2c_read( uint8_t channel, i2c_master_dev_handle_t dev_hand
   // Only switch channel if different from current
   if( current_channel != channel )
   {
-    err = unit_pahub_channel_set( channel );
+    err = _pahub_channel_set_locked( channel );
     if( err != ESP_OK )
     {
       ESP_LOGE( _TAG, "Failed to set PaHUB channel %d for read", channel );
@@ -202,7 +257,8 @@ esp_err_t unit_pahub_i2c_write( uint8_t channel, i2c_master_dev_handle_t dev_han
   }
 
   // Take mutex with timeout
-  if( xSemaphoreTake( pahub_mutex, pdMS_TO_TICKS( 1000 ) ) != pdTRUE )
+  if( xSemaphoreTake( pahub_mutex,
+                      pdMS_TO_TICKS( UNIT_PAHUB_MUTEX_TIMEOUT_MS ) ) != pdTRUE )
   {
     ESP_LOGE( _TAG, "Failed to acquire PaHUB mutex for write operation" );
     return ESP_ERR_TIMEOUT;
@@ -213,7 +269,7 @@ esp_err_t unit_pahub_i2c_write( uint8_t channel, i2c_master_dev_handle_t dev_han
   // Only switch channel if different from current
   if( current_channel != channel )
   {
-    err = unit_pahub_channel_set( channel );
+    err = _pahub_channel_set_locked( channel );
     if( err != ESP_OK )
     {
       ESP_LOGE( _TAG, "Failed to set PaHUB channel %d for write", channel );
@@ -246,9 +302,17 @@ esp_err_t unit_pahub_deinit( void )
     core2foraws_expports_i2c_write( _pahub_dev, CORE2FORAWS_I2C_NO_REG,
                                     &disable_all, 1 );
 
+    // Release the I2C device handle so a later re-init does not leak a
+    // duplicate device registration on the bus.
+    if( _pahub_dev != NULL )
+    {
+      core2foraws_i2c_device_remove( _pahub_dev );
+      _pahub_dev = NULL;
+    }
+
     vSemaphoreDelete( pahub_mutex );
     pahub_mutex = NULL;
-    current_channel = 0xFF;
+    current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN;
     ESP_LOGI( _TAG, "PaHUB deinitialized" );
   }
   return ESP_OK;

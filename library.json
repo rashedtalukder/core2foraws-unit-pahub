@@ -1,6 +1,6 @@
 {
     "name": "core2foraws-unit-4-relay",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Peripheral driver for the M5Stack 4-relay on the Core2 for AWS IoT Kit",
     "keywords": "4relay, 4-relay, m5stack, aws, core2, edukit",
     "repository":

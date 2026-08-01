@@ -1,6 +1,6 @@
 /*!
- * @brief Library for the PaHUB (TCA9548A) or PaHUB2 (PCA9548APW) unit by
- * M5Stack on the Core2 for AWS
+ * @brief Library for M5Stack PaHUB-compatible six-channel I2C switch units on
+ * the Core2 for AWS
  *
  * @copyright Copyright (c) 2024 by Rashed Talukder[https://rashedtalukder.com]
  *
@@ -57,6 +57,8 @@ extern "C"
    * [esp_err_t](https://docs.espressif.com/projects/esp-idf/en/release-v4.3/esp32/api-reference/system/esp_err.html#macros).
    *  - ESP_OK                : Success
    *  - ESP_ERR_INVALID_ARG	: Driver parameter error or invalid channel
+  *  - ESP_ERR_INVALID_STATE : unit_pahub_init() has not been called
+  *  - ESP_ERR_TIMEOUT       : Internal mutex was not acquired within 1 second
    */
   esp_err_t unit_pahub_channel_set( uint8_t channel );
 

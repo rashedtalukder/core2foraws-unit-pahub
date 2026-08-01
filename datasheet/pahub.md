@@ -1,10 +1,14 @@
 # Unit PaHub v2.0 (SKU: U040-B) Firmware Build Specification
 
+## Source Evidence and Precedence
+
+Verified on 2026-08-01 against the official [M5Stack Unit PaHub v2.0 page](https://docs.m5stack.com/en/unit/pahub2), official board imagery, and checked-in TI `pca9548a.pdf` revision G (SHA-256 `fb203781fbac2d5de118ad64b15f6a6a7c93eb1121a2d00af3e6daa7f555d5b7`). M5Stack controls the six exposed ports, fitted PCA9548AP, and default address; TI controls switch protocol, timing, and electrical limits. See `schema.yml`.
+
 ## Purpose
 
 This file is a board-level firmware implementation reference for **M5Stack Unit PaHub v2.0**, which uses a **Texas Instruments PCA9548A / PCA9548AP 8-channel I2C switch** to expand one upstream HY2.0-4P I2C port into **six populated downstream HY2.0-4P I2C ports**.
 
-It is intended to be sufficient for implementing a correct driver and board-support integration for this specific module without needing to re-open the product page, schematic, or chip datasheet.
+It is intended to be sufficient for implementing a correct driver and board-support integration for this specific module without needing to re-open the product page, board imagery, or chip datasheet.
 
 ---
 
@@ -58,7 +62,7 @@ The upstream connector is the board input from the host MCU.
 
 ### 2.3 Downstream Connector Mapping
 
-Per schematic, six downstream connectors are populated.
+The product page and board imagery show six downstream connectors.
 
 | External Port | Connector | PCA9548A channel | Clock net | Data net |
 |---|---|---:|---|---|
@@ -71,7 +75,7 @@ Per schematic, six downstream connectors are populated.
 
 ### 2.4 Unused IC Channels on This Module
 
-The PCA9548A supports 8 channels total, but the PaHub v2.0 schematic only exposes 6 connectors.
+The PCA9548A supports 8 channels total, but PaHub v2.0 exposes only 6 connectors.
 
 | PCA9548A channel | Board status |
 |---:|---|
@@ -86,7 +90,7 @@ Firmware should still treat the underlying control register as 8 bits wide, but 
 
 ## 3.1 Address-Strap Network
 
-The schematic shows resistor options on `A0`, `A1`, and `A2`:
+The product page states that `A0`, `A1`, and `A2` are resistor-modifiable; board imagery shows pull-down and link positions:
 
 - Each address pin has a **10 kΩ pull-down to GND**
 - Each address pin also has an optional **0 Ω link to VCC**
@@ -113,7 +117,7 @@ Implications:
 
 ## 3.3 Pull-Ups and Decoupling
 
-From the schematic:
+From the populated board imagery:
 
 - Upstream `SCL`, `SDA`, and `RESET` have pull-up resistors
 - Downstream channel lines are pulled up to board VCC through resistor networks

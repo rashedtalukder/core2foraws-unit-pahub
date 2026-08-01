@@ -1,10 +1,33 @@
-# M5Stack PaHUB/PaHUB2 Unit ESP-IDF Component
+# M5Stack Unit PaHub v2.0 ESP-IDF Component
 
-This is a component library for use with the M5Stack PaHub or PaHUB2 unit on the Core2 for AWS IoT Kit. Uses the abstractions built in to the [BSP for the Core2 for AWS](https://github.com/m5stack/Core2-for-AWS-IoT-Kit/tree/BSP-dev).
+Driver for the six-port [M5Stack Unit PaHub v2.0](https://docs.m5stack.com/en/unit/pahub2) (U040-B). The board uses a PCA9548AP-compatible I2C switch at `0x70`; only channels `0..5` are routed to connectors.
 
-The PaHUB uses a TCA9548A and the PaHUB2 uses a PCA9548APW low-voltage i2c multiplexer for switching. There are 6 available ports (channels) to use multiple of the same or different i2c peripherals on the hub.
+The driver serializes channel selection and downstream transactions. Use `unit_pahub_i2c_read()` and `unit_pahub_i2c_write()` when multiple tasks or devices share the hub.
 
 ## Usage
-For example, to make a request on a i2c peripheral connected to channel 1 on the hub that has a i2c address of 0x40, you'd:
-1. Switch to channel 1 using `unit_pahub_channel_set( UNIT_PAHUB_CHANNEL_1 );`
-2. Make a i2c request as you would normally using either the Core2 for AWS BSP or native to ESP-IDF. To use the BSP to perform a 1 byte read into a uint8_t variable named "data" in the peripheral's 0x01 register, call `core2foraws_expports_i2c_read( 0x40, 0x01, &data, 1 );` 
+
+```c
+#include "core2foraws.h"
+#include "unit_pahub.h"
+
+i2c_master_dev_handle_t sensor = NULL;
+
+ESP_ERROR_CHECK( core2foraws_expports_i2c_device_add(
+    0x40, 100000, &sensor ) );
+ESP_ERROR_CHECK( unit_pahub_init() );
+
+uint8_t data = 0;
+ESP_ERROR_CHECK( unit_pahub_i2c_read(
+    UNIT_PAHUB_CHANNEL_1, sensor, 0x01, &data, 1 ) );
+```
+
+Call `unit_pahub_deinit()` only after all downstream users have stopped. The driver may block for up to one second while waiting for its mutex.
+
+## API
+
+- `unit_pahub_init()` / `unit_pahub_deinit()` manage the mux device and mutex.
+- `unit_pahub_channel_set()` selects one channel directly.
+- `unit_pahub_channel_get()` reads the hardware mask and returns `0xFF` unless exactly one board channel is active.
+- `unit_pahub_i2c_read()` / `unit_pahub_i2c_write()` atomically select a channel and transfer data.
+
+See [datasheet/pahub.md](datasheet/pahub.md) for board behavior and [datasheet/pca9548a.md](datasheet/pca9548a.md) for the switch protocol.

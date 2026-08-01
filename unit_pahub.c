@@ -1,6 +1,6 @@
 /*!
- * @brief Library for the PaHUB (TCA9548A) or PaHUB2 (PCA9548APW) unit by
- * M5Stack on the Core2 for AWS
+ * @brief Library for M5Stack PaHUB-compatible six-channel I2C switch units on
+ * the Core2 for AWS
  *
  * @copyright Copyright (c) 2024 by Rashed Talukder[https://rashedtalukder.com]
  *
@@ -306,7 +306,7 @@ esp_err_t unit_pahub_deinit( void )
     // duplicate device registration on the bus.
     if( _pahub_dev != NULL )
     {
-      core2foraws_i2c_device_remove( _pahub_dev );
+      core2foraws_expports_i2c_device_remove( _pahub_dev );
       _pahub_dev = NULL;
     }
 

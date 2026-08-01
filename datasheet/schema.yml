@@ -1,0 +1,24 @@
+schema_version: "1.0"
+device:
+  name: "M5Stack Unit PaHub v2.0"
+  sku: "U040-B"
+  scope: "Six-port board using a PCA9548AP-compatible eight-channel I2C switch"
+
+source_evidence:
+  verified_on: "2026-08-01"
+  official_product_page: "https://docs.m5stack.com/en/unit/pahub2"
+  board_reference_image: "https://static-cdn.m5stack.com/resource/docs/products/unit/pahub2/pahub2_06.webp"
+  chip_datasheet:
+    file: "pca9548a.pdf"
+    revision: "Texas Instruments PCA9548A revision G, March 2021"
+    sha256: "fb203781fbac2d5de118ad64b15f6a6a7c93eb1121a2d00af3e6daa7f555d5b7"
+    official_url: "https://www.ti.com/product/PCA9548A"
+  precedence:
+    - "Use the product page and board imagery for the six exposed ports, fitted PCA9548AP, and default address."
+    - "Use the TI datasheet for the control byte, STOP activation, electrical limits, and timing."
+
+interface:
+  type: "I2C"
+  default_address_7bit: 0x70
+  valid_board_channels: [0, 1, 2, 3, 4, 5]
+  control_register: "implicit one-byte channel mask"

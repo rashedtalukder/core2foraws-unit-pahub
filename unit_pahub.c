@@ -184,8 +184,40 @@ esp_err_t unit_pahub_channel_get( uint8_t *channel )
         break;
       }
     }
+    current_channel = *channel;
+  }
+  else
+  {
+    current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN;
   }
 
+  xSemaphoreGive( pahub_mutex );
+  return err;
+}
+
+esp_err_t unit_pahub_mask_set( uint8_t mask )
+{
+  if( mask & ~((1u << UNIT_PAHUB_CHANNELS_NUM) - 1u) )
+    return ESP_ERR_INVALID_ARG;
+  if( pahub_mutex == NULL ) return ESP_ERR_INVALID_STATE;
+  if( xSemaphoreTake( pahub_mutex, pdMS_TO_TICKS( UNIT_PAHUB_MUTEX_TIMEOUT_MS ) ) != pdTRUE )
+    return ESP_ERR_TIMEOUT;
+  current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN;
+  esp_err_t err = core2foraws_expports_i2c_write( _pahub_dev,
+      CORE2FORAWS_I2C_NO_REG, &mask, 1 );
+  xSemaphoreGive( pahub_mutex );
+  return err;
+}
+
+esp_err_t unit_pahub_mask_get( uint8_t *mask )
+{
+  if( mask == NULL ) return ESP_ERR_INVALID_ARG;
+  if( pahub_mutex == NULL ) return ESP_ERR_INVALID_STATE;
+  if( xSemaphoreTake( pahub_mutex, pdMS_TO_TICKS( UNIT_PAHUB_MUTEX_TIMEOUT_MS ) ) != pdTRUE )
+    return ESP_ERR_TIMEOUT;
+  current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN;
+  esp_err_t err = core2foraws_expports_i2c_read( _pahub_dev,
+      CORE2FORAWS_I2C_NO_REG, mask, 1 );
   xSemaphoreGive( pahub_mutex );
   return err;
 }
@@ -200,7 +232,7 @@ esp_err_t unit_pahub_i2c_read( uint8_t channel, i2c_master_dev_handle_t dev_hand
     return ESP_ERR_INVALID_STATE;
   }
 
-  if( channel >= UNIT_PAHUB_CHANNELS_NUM || data == NULL )
+  if( channel >= UNIT_PAHUB_CHANNELS_NUM || dev_handle == NULL || data == NULL || length == 0 )
   {
     return ESP_ERR_INVALID_ARG;
   }
@@ -232,6 +264,7 @@ esp_err_t unit_pahub_i2c_read( uint8_t channel, i2c_master_dev_handle_t dev_hand
                                        length );
   if( err != ESP_OK )
   {
+    current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN;
     ESP_LOGE( _TAG, "I2C read failed on channel %d", channel );
   }
 
@@ -251,7 +284,7 @@ esp_err_t unit_pahub_i2c_write( uint8_t channel, i2c_master_dev_handle_t dev_han
     return ESP_ERR_INVALID_STATE;
   }
 
-  if( channel >= UNIT_PAHUB_CHANNELS_NUM || data == NULL )
+  if( channel >= UNIT_PAHUB_CHANNELS_NUM || dev_handle == NULL || data == NULL || length == 0 )
   {
     return ESP_ERR_INVALID_ARG;
   }
@@ -283,6 +316,7 @@ esp_err_t unit_pahub_i2c_write( uint8_t channel, i2c_master_dev_handle_t dev_han
                                         length );
   if( err != ESP_OK )
   {
+    current_channel = UNIT_PAHUB_CHANNEL_UNKNOWN;
     ESP_LOGE( _TAG, "I2C write failed on channel %d", channel );
   }
 
@@ -299,14 +333,15 @@ esp_err_t unit_pahub_deinit( void )
     // Disable all channels before releasing resources so no downstream
     // device stays active after the driver is torn down.
     uint8_t disable_all = 0x00;
-    core2foraws_expports_i2c_write( _pahub_dev, CORE2FORAWS_I2C_NO_REG,
-                                    &disable_all, 1 );
+    esp_err_t err = unit_pahub_mask_set( disable_all );
+    if( err != ESP_OK ) return err;
 
     // Release the I2C device handle so a later re-init does not leak a
     // duplicate device registration on the bus.
     if( _pahub_dev != NULL )
     {
-      core2foraws_expports_i2c_device_remove( _pahub_dev );
+      err = core2foraws_expports_i2c_device_remove( _pahub_dev );
+      if( err != ESP_OK ) return err;
       _pahub_dev = NULL;
     }
 

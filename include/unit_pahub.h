@@ -81,6 +81,9 @@ extern "C"
    */
   esp_err_t unit_pahub_channel_get( uint8_t *channel );
 
+  esp_err_t unit_pahub_mask_set( uint8_t mask );
+  esp_err_t unit_pahub_mask_get( uint8_t *mask );
+
   /**
    * @brief Initialize the PaHUB mutex for thread-safe operations.
    *

@@ -1,5 +1,17 @@
 # Unit PaHub v2.0 (SKU: U040-B) Firmware Build Specification
 
+## 2026-09-08 Integration Contract
+
+The six-port mask API supports single/multiple enabled ports, readback and
+all-off. Do not enable same-address devices together. Selecting a channel
+and then using BSP I2C separately is not atomic: use `unit_pahub_i2c_read/write`.
+
+ENV III's QMP6988 is `0x70`, colliding with the default hub address when its
+port opens. Change physical address straps and Kconfig together. Shed
+Controller expects hub `0x72`, ENV channel 0, relays channel 1, VMeter channel 2.
+Software cannot change solder straps. Do not power-cycle the MCU rail to
+recover an external hub. The Grove connector has no RESET signal.
+
 ## Source Evidence and Precedence
 
 Verified on 2026-08-01 against the official [M5Stack Unit PaHub v2.0 page](https://docs.m5stack.com/en/unit/pahub2), official board imagery, and checked-in TI `pca9548a.pdf` revision G (SHA-256 `fb203781fbac2d5de118ad64b15f6a6a7c93eb1121a2d00af3e6daa7f555d5b7`). M5Stack controls the six exposed ports, fitted PCA9548AP, and default address; TI controls switch protocol, timing, and electrical limits. See `schema.yml`.
@@ -261,19 +273,19 @@ Board-level expectation:
 
 ## 8.2 Standard Mode Timing
 
-| Parameter | Min |
+| Parameter | Limit |
 |---|---:|
 | SCL frequency | 0 to 100 kHz |
-| SCL high time | 4 µs |
-| SCL low time | 4.7 µs |
-| data setup time | 250 ns |
-| input rise time | 1000 ns |
-| input fall time | 300 ns |
-| bus free time between STOP and START | 4.7 µs |
-| START setup time | 4.7 µs |
-| START hold time | 4 µs |
-| STOP setup time | 4 µs |
-| max bus capacitance | 400 pF |
+| SCL high time | 4 µs min |
+| SCL low time | 4.7 µs min |
+| data setup time | 250 ns min |
+| input rise time | 1000 ns max |
+| input fall time | 300 ns max |
+| bus free time between STOP and START | 4.7 µs min |
+| START setup time | 4.7 µs min |
+| START hold time | 4 µs min |
+| STOP setup time | 4 µs min |
+| max bus capacitance | 400 pF max |
 
 ## 8.3 Fast Mode Timing
 
@@ -298,7 +310,7 @@ Chip-level reset timing:
 
 - `RESET low pulse width >= 6 ns`
 - `RESET recovery time to START >= 0 ns`
-- `RESET to SDA clear typ/max behavior reported as 500 ns`
+- `RESET to SDA clear <= 500 ns` (maximum, not typical)
 
 Board note: this pin is not normally MCU-controlled on this module.
 

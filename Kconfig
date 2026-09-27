@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2024-2026 Rashed Talukder
+# SPDX-License-Identifier: Apache-2.0
+
+menu "Unit PaHUB Configuration"
+
+    config PAHUB_ADDRESS
+        hex "Hub I2C address"
+        range 0x70 0x77
+        default 0x70
+        help
+            7-bit address set by the A0-A2 solder straps on the back of the
+            unit. The factory setting is 0x70, which clashes with the ENV III
+            QMP6988; move one of them if both share Port A.
+
+    config PAHUB_I2C_SPEED_HZ
+        int "Hub control-register SCL speed (Hz)"
+        range 10000 400000
+        default 100000
+        help
+            Clock for selecting ports. The PCA9548A supports 400 kHz, but the
+            selected downstream cable and devices load the bus too, so raise
+            it only if the whole Port A tree meets Fast-mode rise times.
+            Downstream devices use the speed their own drivers register.
+
+    config PAHUB_DESELECT_WHEN_IDLE
+        bool "Turn every port off after each transfer"
+        default n
+        help
+            Leaves the hub with no port selected whenever no transfer or
+            unit_pahub_lock() hold is in progress. Enable it when devices
+            connected straight to Port A share an address with a device behind
+            the hub. Costs one extra control write per transfer.
+
+    config PAHUB_AUTO_RECOVER
+        bool "Recover a hung Port A bus automatically"
+        default y
+        help
+            When a hub control write or a downstream transfer times out,
+            clock the bus free (releasing a device that holds SDA low) and
+            reselect the port on the next access. Control writes are retried
+            once after the reset. Disable it only if another I2C master
+            shares Port A.
+
+endmenu

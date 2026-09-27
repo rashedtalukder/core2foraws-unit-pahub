@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2024-2026 Rashed Talukder
+# SPDX-License-Identifier: Apache-2.0
+
+version: "1.0.0"
+description: "Driver for the M5Stack Unit PaHub v2.0 (U040-B) on the Core2 for AWS IoT Kit"
+url: "https://github.com/rashedtalukder/core2foraws-unit-pahub"
+license: "Apache-2.0"
+dependencies:
+  idf:
+    version: ">=5.2"
